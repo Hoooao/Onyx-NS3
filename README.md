@@ -1,6 +1,6 @@
 ### Installation
 
-Refer to [NS3-release](https://www.nsnam.org/releases/ns-3-43/) for lated NS3 release and documentation for compiling. 
+Refer to [NS3-release](https://www.nsnam.org/releases/ns-3-43/) for the latest NS3 release and documentation for compiling. 
 
 ### Onyx simmed
 
