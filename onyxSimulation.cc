@@ -19,6 +19,7 @@ int main(int argc, char* argv[]){
     uint32_t nReceiver = 9;
     uint32_t dataRate = 20;
     uint32_t delay = 1000;
+    bool rr = false;
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("nProxy", "Number of intermediate proxies", nProxy);
@@ -26,7 +27,14 @@ int main(int argc, char* argv[]){
     cmd.AddValue("dataRate", "Data rate of the links", dataRate);
     cmd.AddValue("delay", "Delay of the links in ms", delay);
     cmd.AddValue("verbose", "Tell applications to log if true", verbose);
+    cmd.AddValue("rr", "Round robin forwarding", rr);
     cmd.Parse(argc, argv);
+
+    std::ofstream logFile("./onyx_pcap/simulation.log");
+    if (!logFile.is_open()) {
+        std::cerr << "Failed to open log file!" << std::endl;
+        return 1;
+    }
 
     if (verbose)
     {
@@ -38,8 +46,9 @@ int main(int argc, char* argv[]){
         //LogComponentEnable("UdpSocket", LOG_LEVEL_ALL);
         //LogComponentEnable("Application", LOG_LEVEL_ALL);
     }
+     std::clog.rdbuf(logFile.rdbuf()); // Redirect log output to the file
 
-    Onyx::OnyxTree tree(nProxy, nReceiver, std::to_string(dataRate) + "Mbps", delay);
+    Onyx::OnyxTree tree(nProxy, nReceiver, std::to_string(dataRate) + "Mbps", delay, rr);
 
     tree.SetupTopology();
     tree.StartApplications();

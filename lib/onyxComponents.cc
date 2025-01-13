@@ -15,7 +15,8 @@ namespace Onyx {
     OnyxTree::OnyxTree(uint32_t nProxy, 
         uint32_t nReceiver, 
         std::string dataRate = "100Mbps",
-        uint64_t delay_ms = 1000): _nodesLayers(3), _nProxy(nProxy), _nReceiver(nReceiver), _dataRate(dataRate), _delay_ms(delay_ms) {
+        uint64_t delay_ms = 1000,
+        bool rr = false): _nodesLayers(3), _nProxy(nProxy), _nReceiver(nReceiver), _dataRate(dataRate), _delay_ms(delay_ms), _rr(rr) {
         NS_LOG_INFO("Creating OnyxTree with " << nProxy << " proxies and " << nReceiver << " receivers");
         // TODO: make NUM_OF_RECEIVERS_PER_PROXY a parameter
         if(_nReceiver != _nProxy * NUM_OF_RECEIVERS_PER_PROXY){
@@ -61,13 +62,20 @@ namespace Onyx {
         // Assign IP addresses
         Ipv4AddressHelper address;
         address.SetBase("10.1.1.0", "255.255.255.0");
-        for (uint32_t i = 0; i < _nProxy; i++) 
+        for (uint32_t i = 0; i < _nProxy; i++) {
             cli2ProxyIFs.emplace_back(address.Assign(cli2ProxyDevices[i]));
+            SetNodeNameForIP(cli2ProxyIFs[i].GetAddress(1), "proxy" + std::to_string(i));
+            SetNodeNameForIP(cli2ProxyIFs[i].GetAddress(0), "client");
+        }
+            
         address.SetBase("10.1.2.0", "255.255.255.0");
         for (uint32_t i = 0; i < _nProxy; i++) {
             std::vector<Ipv4InterfaceContainer> proxy2RecvrIFs;
-            for (uint32_t j = 0; j < _nReceiver; j++) 
+            for (uint32_t j = 0; j < _nReceiver; j++){
                 proxy2RecvrIFs.emplace_back(address.Assign(proxy2RecvrDevices[i][j]));
+                SetNodeNameForIP(proxy2RecvrIFs[j].GetAddress(1), "receiver" + std::to_string(j));
+                SetNodeNameForIP(proxy2RecvrIFs[j].GetAddress(0), "proxy" + std::to_string(i));
+            }
             proxies2RecvrIFs.emplace_back(proxy2RecvrIFs);
         }
         for (auto& ifc: cli2ProxyIFs) {
@@ -111,7 +119,7 @@ namespace Onyx {
             NS_LOG_DEBUG("Proxy " << i << " bound to receiving socket at " << cli2ProxyIFs[i].GetAddress(1));
             
             Ptr<OnyxProxyApp> proxyApp = CreateObject<OnyxProxyApp>();
-            proxyApp->Setup(recvSocket, proxyId2RcvrSockets[i], 1024, i * NUM_OF_RECEIVERS_PER_PROXY, NUM_OF_RECEIVERS_PER_PROXY);
+            proxyApp->Setup(recvSocket, proxyId2RcvrSockets[i], 1024, i * NUM_OF_RECEIVERS_PER_PROXY, NUM_OF_RECEIVERS_PER_PROXY, _rr);
             _nodesLayers[1].Get(i)->AddApplication(proxyApp);
             proxyApps.emplace_back(proxyApp);
 
@@ -177,6 +185,8 @@ namespace Onyx {
 
         Ptr<ns3::OutputStreamWrapper> stream1 = Create<OutputStreamWrapper>("onyx_pcap/routing-table-proxy0", std::ios::out);
         _proxyApps[0]->GetNode()->GetObject<Ipv4>()->GetRoutingProtocol()->PrintRoutingTable(stream1);
+        NS_LOG_INFO(" --------SIMULATION STARTED--------");
+
         Simulator::Run();
         Simulator::Destroy();
     }

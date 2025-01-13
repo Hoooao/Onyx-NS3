@@ -5,6 +5,7 @@
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
+#include "common.h"
 
 using namespace ns3;
 
@@ -12,7 +13,7 @@ using namespace ns3;
 namespace Onyx{
     class OnyxProxyApp : public Application {
     public:
-        OnyxProxyApp() : _recvSocket(nullptr), _packetSize(1024), _initReceiverId(0), _receiverNum(0) {}
+        OnyxProxyApp() : _recvSocket(nullptr), _packetSize(1024), _initReceiverId(0), _receiverNum(0),_rr(false) {}
         static TypeId GetTypeId(){
             static TypeId tid = TypeId("OnyxProxyApp")
                                 .SetParent<Application>()
@@ -20,7 +21,7 @@ namespace Onyx{
                                 .AddConstructor<OnyxProxyApp>();
             return tid;
         }
-        void Setup(Ptr<Socket> recvSocket, const std::vector<Ptr<Socket>>& forwardSockets, uint32_t packetSize, uint32_t initReceiverId, uint32_t receiverNum);
+        void Setup(Ptr<Socket> recvSocket, const std::vector<Ptr<Socket>>& forwardSockets, uint32_t packetSize, uint32_t initReceiverId, uint32_t receiverNum, bool rr);
         virtual void StartApplication();
 
         virtual void StopApplication() {
@@ -34,6 +35,7 @@ namespace Onyx{
         uint32_t _packetSize;
         uint32_t _initReceiverId;
         uint32_t _receiverNum;
+        bool _rr;
 
         void ReceivePacket(Ptr<Socket> socket);
 

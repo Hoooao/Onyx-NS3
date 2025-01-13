@@ -14,7 +14,7 @@ void OnyxReceiverApp::Setup(std::vector<Ptr<Socket>> recvSockets, uint32_t packe
 void OnyxReceiverApp::ReceivePacket(Ptr<Socket> socket) {
     Address from;
     Ptr<Packet> packet = socket->RecvFrom(from);
-    NS_LOG_DEBUG("Packet received at receiver " << GetNode()->GetId() << " from " << InetSocketAddress::ConvertFrom(from).GetIpv4());
+    NS_LOG_INFO_WITH_TIME("Packet received at receiver " << GetNode()->GetId() << " from " << GetNodeNameFromIP(InetSocketAddress::ConvertFrom(from).GetIpv4()));
 }
 void OnyxReceiverApp::StartApplication() {
     NS_LOG_INFO("Starting receiver application");

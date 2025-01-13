@@ -12,6 +12,8 @@
 #include "onyxProxyApp.h"
 #include "onyxReceiverApp.h"
 
+#include "common.h"
+
 #include <vector>
 #include <iostream>
 
@@ -31,7 +33,7 @@ namespace Onyx {
 
     class OnyxTree{
         public:
-            OnyxTree(uint32_t nProxy, uint32_t nReceiver, std::string dataRate, uint64_t delay_ms);
+            OnyxTree(uint32_t nProxy, uint32_t nReceiver, std::string dataRate, uint64_t delay_ms, bool rr);
             ~OnyxTree() = default;
             // TODO(Hao): make it more general using polymorphism (to add more layers), not needed now tho..
             void SetupTopology();
@@ -41,6 +43,7 @@ namespace Onyx {
             uint32_t _nReceiver;
             std::string _dataRate;
             uint64_t _delay_ms;
+            bool _rr;
 
             std::vector<NodeContainer> _nodesLayers;
 

@@ -28,7 +28,7 @@ void OnyxClientApp::StopApplication() {
 
 void OnyxClientApp::SendMessage() {
     if (_sent < _packetCount) {
-        NS_LOG_INFO("Client sending packet " << _sent);
+        NS_LOG_INFO_WITH_TIME("Client broadcasting packet " << _sent);
         for (auto& socket: _proxySockets) {
             Ptr<Packet> packet = Create<Packet>(_packetSize);
             socket->Send(packet);
@@ -36,7 +36,7 @@ void OnyxClientApp::SendMessage() {
             socket->GetSockName(from);
             Address to;
             socket->GetPeerName(to);
-            NS_LOG_DEBUG("Client sent packet of size " << _packetSize << " to proxy " << InetSocketAddress::ConvertFrom(to).GetIpv4() << " from " << InetSocketAddress::ConvertFrom(from).GetIpv4());
+            NS_LOG_INFO_WITH_TIME("Client sent packet of size " << _packetSize << " to " << GetNodeNameFromIP(InetSocketAddress::ConvertFrom(to).GetIpv4()));
 
         }
         _sent++;

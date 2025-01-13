@@ -6,25 +6,31 @@ using namespace Onyx;
 NS_LOG_COMPONENT_DEFINE("OnyxProxyApp");
 NS_OBJECT_ENSURE_REGISTERED(OnyxProxyApp);
 
-void OnyxProxyApp::Setup(Ptr<Socket> recvSocket, const std::vector<Ptr<Socket>>& forwardSockets, uint32_t packetSize, uint32_t initReceiverId, uint32_t receiverNum) {
-    NS_LOG_INFO("Setting up proxy application");
-    NS_LOG_DEBUG("initReceiverId: " << _initReceiverId << " receiverNum: " << _receiverNum << " forwardSockets size: " << _forwardSockets.size());
+void OnyxProxyApp::Setup(Ptr<Socket> recvSocket, const std::vector<Ptr<Socket>>& forwardSockets, uint32_t packetSize, uint32_t initReceiverId, uint32_t receiverNum, bool rr) {
     _recvSocket = recvSocket;
     _forwardSockets = forwardSockets;
     _packetSize = packetSize;
     _initReceiverId = initReceiverId;
     _receiverNum = receiverNum;
+    _rr = rr;
+    NS_LOG_INFO("initReceiverId: " << _initReceiverId << " receiverNum: " << _receiverNum << " forwardSockets size: " << _forwardSockets.size());
 }
 
 void OnyxProxyApp::ReceivePacket(Ptr<Socket> socket) {
     Address from;
     Ptr<Packet> packet = socket->RecvFrom(from);
-    NS_LOG_DEBUG("Packet received at proxy " << GetNode()->GetId() << " from " << InetSocketAddress::ConvertFrom(from).GetIpv4());
-    // TODO(Hao): hard coded targets, need to implement RR
+    NS_LOG_INFO_WITH_TIME("Packet received at proxy " << GetNode()->GetId() << " from " << GetNodeNameFromIP(InetSocketAddress::ConvertFrom(from).GetIpv4()));
+    
     for (size_t idx = _initReceiverId; idx < _initReceiverId + _receiverNum; ++idx) {
+        size_t socketIdx = idx % _forwardSockets.size();
         Ptr<Packet> forwardPacket = packet->Copy();
-        _forwardSockets[idx]->Send(forwardPacket);
-        NS_LOG_DEBUG("Forwarded packet to node " << idx);
+        _forwardSockets[socketIdx]->Send(forwardPacket);
+        Address to;
+        _forwardSockets[socketIdx]->GetPeerName(to);
+        NS_LOG_INFO_WITH_TIME("Forwarding packet to " << GetNodeNameFromIP(InetSocketAddress::ConvertFrom(to).GetIpv4()));
+    }
+    if (_rr) {
+        _initReceiverId = (_initReceiverId + 1) % _forwardSockets.size();
     }
 }
 void OnyxProxyApp::StartApplication() {
