@@ -43,10 +43,53 @@ namespace Onyx {
         }
     }
 
+    void OnyxTree::AllocateNodes(NodeContainer* nodes) {
+        // generate randoms between 0 and SPIN_CNT
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> rcDis(0, LEAF_CNT - 1);
+        std::uniform_int_distribution<> nodeDis(0, NODE_IN_RACK_CNT - 1);
+        std::vector<std::pair<uint32_t, uint32_t>> usedNodes;
+        uint32_t rackIdx = 0;
+        uint32_t nodeIdx = 0;
+        // rackIdx = rcDis(gen);
+        // nodeIdx = nodeDis(gen);
+        usedNodes.emplace_back(rackIdx, nodeIdx);
+        _nodesLayers[0] = NodeContainer(nodes[rackIdx].Get(nodeIdx));
+        NS_LOG_INFO("Allocating client node to rack " << rackIdx << " node " << nodeIdx);
+        for(uint32_t i = 1; i <= _nProxy; i++) {
+            // while(std::find(usedNodes.begin(), usedNodes.end(), std::make_pair(rackIdx, nodeIdx)) != usedNodes.end()) {
+            //     rackIdx = rcDis(gen);
+            //     nodeIdx = nodeDis(gen);
+            // }
+            rackIdx = i-1;
+            nodeIdx = i;
+            NS_LOG_INFO("Allocating proxy "<< i <<" node to rack " << rackIdx << " node " << nodeIdx);
+            usedNodes.emplace_back(rackIdx, nodeIdx);
+            auto node = nodes[rackIdx].Get(nodeIdx);
+            _nodesLayers[1].Add(node);
+            SetNodeNameForIP(GetIPFromNodeName(Names::FindName(node)), "proxy" + std::to_string(i));
+        }
+        for(uint32_t i = _nProxy + 1; i <= _nProxy + _nReceiver; i++) {
+            // while(std::find(usedNodes.begin(), usedNodes.end(), std::make_pair(rackIdx, nodeIdx)) != usedNodes.end()) {
+            //     rackIdx = rcDis(gen);
+            //     nodeIdx = nodeDis(gen);
+            // }
+            rackIdx = i % LEAF_CNT;
+            nodeIdx = i;
+            NS_LOG_INFO("Allocating receiver"<< i <<" node to rack " << rackIdx << " node " << nodeIdx);
+            usedNodes.emplace_back(rackIdx, nodeIdx);
+
+            auto node = nodes[rackIdx].Get(nodeIdx);
+            _nodesLayers[2].Add(node);
+            SetNodeNameForIP(GetIPFromNodeName(Names::FindName(node)), "receiver" + std::to_string(i - _nProxy - 1));
+        }
+    }
+
     void OnyxTree::SetupTopology() {
         PointToPointHelper NodeToSW;
         PointToPointHelper SWToSW;
-
+        OnyxLatencyGenerator latGenerator;
         NodeToSW.SetDeviceAttribute ("DataRate", 	StringValue (_dataRate));
         NodeToSW.SetChannelAttribute("Delay", 		TimeValue(MicroSeconds(_delay_us)));
         SWToSW.SetDeviceAttribute 	("DataRate", 	StringValue (_dataRate));
@@ -61,8 +104,12 @@ namespace Onyx {
             leafs.Create(LEAF_CNT);
             for(uint8_t i = 0; i < LEAF_CNT; i++)
                 nodes[i].Create(NODE_IN_RACK_CNT);
+
+            NS_LOG_INFO("Creating " << std::to_string(SPIN_CNT) << " spine switches, " << std::to_string(LEAF_CNT) << " leaf switches, and " << std::to_string(NODE_IN_RACK_CNT) << " nodes in each rack");
         }
 
+        // Enable ECMP routing before installing the stack
+        //Config::SetDefault("ns3::Ipv4GlobalRouting::RandomEcmpRouting", BooleanValue(true));
         InternetStackHelper stack;
         {
             stack.Install(spins);
@@ -81,11 +128,15 @@ namespace Onyx {
             for(uint8_t i = 0; i < LEAF_CNT; i++)
                 for(uint8_t j = 0; j < NODE_IN_RACK_CNT; j++){
                     node2sw[i][j] = NodeToSW.Install(nodes[i].Get(j), leafs.Get(i));
+                    latGenerator.AddChannelForLat(DynamicCast<PointToPointChannel>(node2sw[i][j].Get(0)->GetChannel()));
                 }
             // Point2Point between leaf switches(rack) and spine switches
             for(uint8_t i = 0; i < SPIN_CNT; i++)
                 for(uint8_t j = 0; j < LEAF_CNT; j++) {
                     sw2sw[i][j] = SWToSW.Install(spins.Get(i), leafs.Get(j));
+                    // channel is bi-dir, so Get(0) and Get(1) are the same
+                    latGenerator.AddChannelForLat(DynamicCast<PointToPointChannel>(sw2sw[i][j].Get(0)->GetChannel()));
+                    latGenerator.AddChannelForSpike(DynamicCast<PointToPointChannel>(sw2sw[i][j].Get(1)->GetChannel()));
                 }
 	    }
 
@@ -120,22 +171,10 @@ namespace Onyx {
                     SetNodeNameForIP(interface.GetAddress(0), "spine_switch" + std::to_string(i));
                     SetNodeNameForIP(interface.GetAddress(1), "rack_switch" + std::to_string(j));
                 }}
-        }
-    
-    // Select nodes into an OnyxTree
-    // FOR TESTING: we assume all proxy, node, and cli are in the same rack for now.
-    // In rack 0, we have 1 client, 3 proxies, and 9 receivers
-    // Wrap this into a function later, that reads some spec
-        _nodesLayers[0] = NodeContainer(nodes[0].Get(0));
-        for(uint32_t i = 1; i <= _nProxy; i++) {
-            _nodesLayers[1].Add(nodes[0].Get(i));
-            SetNodeNameForIP(GetIPFromNodeName(Names::FindName(nodes[0].Get(i))), "proxy" + std::to_string(i));
-        }
-        for(uint32_t i = _nProxy + 1; i <= _nProxy + _nReceiver; i++) {
-            _nodesLayers[2].Add(nodes[0].Get(i));
-            SetNodeNameForIP(GetIPFromNodeName(Names::FindName(nodes[0].Get(i))), "receiver" + std::to_string(i - _nProxy - 1));
-        }
-        
+        } 
+
+        // Allocate nodes with roles in different racks
+        AllocateNodes(nodes);
 
 
         // Setup receivers
@@ -159,7 +198,6 @@ namespace Onyx {
         // Setup proxies
         std::vector<Ptr<OnyxProxyApp>> proxyApps;
         std::vector<Ptr<Socket>> proxySockets(_nProxy);
-        OnyxLatencyGenerator latGenerator;
         auto cliNode = _nodesLayers[0].Get(0);
         for (uint32_t i = 0; i < _nProxy; i++) {
             Ptr<Socket> recvSocket = Socket::CreateSocket(_nodesLayers[1].Get(i), TypeId::LookupByName("ns3::UdpSocketFactory"));
@@ -173,9 +211,6 @@ namespace Onyx {
             // Create the counterpart sockets for the client to connect from
             proxySockets[i] = Socket::CreateSocket(cliNode, TypeId::LookupByName("ns3::UdpSocketFactory"));
             proxySockets[i]->Connect(InetSocketAddress(GetIPFromNodeName(Names::FindName(_nodesLayers[1].Get(i))), CLI_PROXY_PORT ));
-            // Since node only connects to switch, so the dstNum will always be 1.
-            // If later we want to adopt multi-spne, this can be change for switch(rack) to switch(spine)
-            latGenerator.AddNode(_nodesLayers[1].Get(i), 1);
         }
 
         // Setup clients
@@ -201,6 +236,7 @@ namespace Onyx {
         //         proxyRouting->AddHostRouteTo(proxies2RecvrIFs[i][j].GetAddress(1), Ipv4Address::GetAny(), j + 2);
         //     }
         // }
+
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
         NodeToSW.EnablePcapAll("onyx_pcap/onyx");

@@ -39,6 +39,8 @@ namespace Onyx {
             // TODO(Hao): make it more general using polymorphism (to add more layers), not needed now tho..
             void SetupTopology();
             void StartApplications();
+
+            void AllocateNodes(NodeContainer* nodes);
         private:
             uint32_t _nProxy;
             uint32_t _nReceiver;
