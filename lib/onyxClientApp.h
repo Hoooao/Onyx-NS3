@@ -1,4 +1,3 @@
-// add a if define to avoid multiple include
 #ifndef ONYX_CLIENT_APP_H
 #define ONYX_CLIENT_APP_H
 #include "ns3/core-module.h"
@@ -21,7 +20,7 @@ namespace Onyx{
                                     .AddConstructor<OnyxClientApp>();
             return tid;
         }
-        void Setup(const std::vector<Ptr<Socket>>& proxySockets, uint32_t packetSize, uint32_t packetCount, double frequency);
+        void Setup(const std::vector<Ptr<Socket>>& proxySockets, const OnyxLatencyGenerator& latGenerator);
         virtual void StartApplication() override;
         virtual void StopApplication() override;
 
@@ -33,8 +32,10 @@ namespace Onyx{
         uint32_t _packetSize;
         uint32_t _packetCount;
         Time _interval;
-        uint32_t _sent;
-        double _frequency; // Frequency in Hz
+        uint32_t _frequency; // Frequency in Hz
+        uint64_t _sent;
+
+        OnyxLatencyGenerator _latGenerator;
 
         void SendMessage();
 

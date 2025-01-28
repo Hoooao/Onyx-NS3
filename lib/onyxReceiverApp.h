@@ -14,27 +14,28 @@ using namespace ns3;
 namespace Onyx{
     class OnyxReceiverApp : public Application {
     public:
-        OnyxReceiverApp() : _recvSockets(0), _packetSize(1024) {}
+        OnyxReceiverApp() :_packetSize(1024) {}
         static TypeId GetTypeId(){
             static TypeId tid = TypeId("OnyxReceiverApp")
                                 .SetParent<Application>()
                                 .SetGroupName("Onyx")
+                                .AddAttribute("Name", "The name of the application", 
+                                        StringValue("OnyxReceiverApp"),
+                                        MakeStringAccessor(&OnyxReceiverApp::_name),
+                                        MakeStringChecker())
                                 .AddConstructor<OnyxReceiverApp>();
             return tid;
         }
-        void Setup(std::vector<Ptr<Socket>> recvSockets, uint32_t packetSize);
+        void Setup(Ptr<Socket> recvSocket, std::string name);
         virtual void StartApplication();
 
         virtual void StopApplication() {
-            if (!_recvSockets.empty()) {
-                for (auto& socket: _recvSockets) {
-                    socket->Close();
-                }   
-            }
+            _recvSocket->Close();
         }
     private:
-        std::vector<Ptr<Socket>> _recvSockets;
+        Ptr<Socket> _recvSocket;
         uint32_t _packetSize;
+        std::string _name;
 
         void ReceivePacket(Ptr<Socket> socket);
 

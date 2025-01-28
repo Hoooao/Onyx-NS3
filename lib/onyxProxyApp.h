@@ -18,10 +18,14 @@ namespace Onyx{
             static TypeId tid = TypeId("OnyxProxyApp")
                                 .SetParent<Application>()
                                 .SetGroupName("Onyx")
+                                .AddAttribute("Name", "The name of the application", 
+                                        StringValue("OnyxProxyApp"),
+                                        MakeStringAccessor(&OnyxProxyApp::_name),
+                                        MakeStringChecker())
                                 .AddConstructor<OnyxProxyApp>();
             return tid;
         }
-        void Setup(Ptr<Socket> recvSocket, const std::vector<Ptr<Socket>>& forwardSockets, uint32_t packetSize, uint32_t initReceiverId, uint32_t receiverNum, bool rr);
+        void Setup(Ptr<Socket> recvSocket, const std::vector<Ptr<Socket>>& forwardSockets, uint32_t initReceiverId, uint32_t receiverNum, std::string name);
         virtual void StartApplication();
 
         virtual void StopApplication() {
@@ -35,6 +39,7 @@ namespace Onyx{
         uint32_t _packetSize;
         uint32_t _initReceiverId;
         uint32_t _receiverNum;
+        std::string _name;
         bool _rr;
 
         void ReceivePacket(Ptr<Socket> socket);

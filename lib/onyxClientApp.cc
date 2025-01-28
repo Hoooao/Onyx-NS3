@@ -5,11 +5,13 @@ using namespace Onyx;
 NS_LOG_COMPONENT_DEFINE("OnyxClientApp");
 NS_OBJECT_ENSURE_REGISTERED(OnyxClientApp);
 
-void OnyxClientApp::Setup(const std::vector<Ptr<Socket>>& proxySockets, uint32_t packetSize, uint32_t packetCount, double frequency){
+void OnyxClientApp::Setup(const std::vector<Ptr<Socket>>& proxySockets, const OnyxLatencyGenerator& latGenerator){
+    OnyxConfigs& configs = OnyxConfigs::GetInstance();
     _proxySockets = proxySockets;
-    _packetSize = packetSize;
-    _packetCount = packetCount;
-    _frequency = frequency;
+    _packetSize = configs.packetSize;
+    _frequency = configs.clientSendFreq;
+    _latGenerator = latGenerator;
+    NS_LOG_INFO("Client setup with packet size " << _packetSize << " and frequency " << _frequency);
 }
 
 void OnyxClientApp::StartApplication() {
@@ -27,19 +29,21 @@ void OnyxClientApp::StopApplication() {
 }
 
 void OnyxClientApp::SendMessage() {
-    if (_sent < _packetCount) {
-        NS_LOG_INFO_WITH_TIME("Client broadcasting packet " << _sent);
-        for (auto& socket: _proxySockets) {
-            Ptr<Packet> packet = Create<Packet>(_packetSize);
-            socket->Send(packet);
-            Address from;
-            socket->GetSockName(from);
-            Address to;
-            socket->GetPeerName(to);
-            NS_LOG_INFO_WITH_TIME("Client sent packet of size " << _packetSize << " to " << GetNodeNameFromIP(InetSocketAddress::ConvertFrom(to).GetIpv4()));
-
-        }
-        _sent++;
-        _event = Simulator::Schedule(Seconds(1.0 / 1), &OnyxClientApp::SendMessage, this);
+    NS_LOG_INFO_WITH_TIME("Client broadcasting seq=" << _sent);
+    _latGenerator.GenerateSpike();
+    for (auto& socket: _proxySockets) {
+        Ptr<Packet> packet = Create<Packet>(_packetSize);
+        OnyxHeader header(_sent);
+        packet->AddHeader(header);
+        socket->Send(packet);
+        Address from;
+        socket->GetSockName(from);
+        Address to;
+        socket->GetPeerName(to);
+        NS_LOG_DEBUG_WITH_TIME("Client sent packet to " << GetNodeNameFromIP(InetSocketAddress::ConvertFrom(to).GetIpv4()));
     }
+    _sent++;
+    _event = Simulator::Schedule(Seconds(1.0 / _frequency), &OnyxClientApp::SendMessage, this);
+    
+    Simulator::Schedule(MilliSeconds(50), &OnyxLatencyGenerator::GenerateSmallLatency, this->_latGenerator);
 }

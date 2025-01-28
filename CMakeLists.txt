@@ -20,6 +20,11 @@ add_library(
   lib/onyxReceiverApp.cc
 )
 
+add_library(
+  common
+  lib/common.cc
+)
+
 # Link the custom library to the scratch executable
 build_exec(
   EXECNAME onyxSimulation
@@ -28,6 +33,7 @@ build_exec(
                     onyxClientApp
                     onyxProxyApp
                     onyxReceiverApp
+                    common
                     ${libcore}
                     ${libpoint-to-point}
                     ${libinternet}
